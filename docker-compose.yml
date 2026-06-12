@@ -27,13 +27,21 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      DATABASE_URL: "postgresql://workoutx:workoutx@postgres:5432/workoutx?schema=public"
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
     ports:
       - "8388:3000"
     volumes:
       - .:/app
       - workoutx-node-modules:/app/node_modules
-    command: sh -c "npm install && npx prisma generate && npm run dev"
+      - workoutx-next-cache:/app/.next
+      - workoutx-npm-cache:/root/.npm
+    command: sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev -- --hostname 0.0.0.0"
 
 volumes:
   workoutx-postgres-data:
   workoutx-node-modules:
+  workoutx-next-cache:
+  workoutx-npm-cache:
