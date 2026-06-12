@@ -28,7 +28,7 @@ services:
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "8388:3000"
     volumes:
       - .:/app
       - workoutx-node-modules:/app/node_modules

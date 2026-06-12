@@ -1515,15 +1515,83 @@ button.plan-thumb:not(:disabled)::after {
 }
 
 .body-map-selected strong {
+  display: block;
+  margin-top: 3px;
   color: #0f3d30;
-  text-align: right;
   font-size: 13px;
+}
+
+.selected-muscle-strip {
+  display: flex;
+  flex: 1;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  max-width: 68%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.selected-muscle-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.selected-muscle-strip span,
+.selected-muscle-strip em {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  color: #0f513f;
+  border: 1px solid rgba(20, 184, 138, 0.18);
+  border-radius: 999px;
+  background: #eafbf5;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.selected-muscle-strip em {
+  color: #789087;
+  border-color: rgba(15, 118, 110, 0.1);
+  background: #f7fbf8;
+}
+
+.muscle-picker-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.muscle-chip-details {
+  margin-top: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.muscle-chip-details summary {
+  cursor: pointer;
+  padding: 11px 12px;
+  color: #0f513f;
+  font-size: 13px;
+  font-weight: 900;
+  list-style-position: inside;
+}
+
+.muscle-query-note {
+  margin-top: 10px;
+  color: #789087;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .muscle-group-list {
   display: grid;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 10px;
+  padding: 0 12px 12px;
 }
 
 .muscle-group {
@@ -1652,6 +1720,18 @@ button.plan-thumb:not(:disabled)::after {
   .body-map-card {
     padding: 12px 12px 8px;
     border-radius: 18px;
+  }
+
+  .body-map-selected {
+    align-items: flex-start;
+  }
+
+  .selected-muscle-strip {
+    max-width: 62%;
+  }
+
+  .muscle-picker-actions {
+    grid-template-columns: 1fr;
   }
 
   .body-map-svg {

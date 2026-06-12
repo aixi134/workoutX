@@ -292,6 +292,10 @@ export function WorkoutApp() {
 
   async function handleSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    if (selectedMuscleIds.length) {
+      await runSelectedMuscleSearch(selectedMuscleIds);
+      return;
+    }
     await runExerciseSearch({ query, bodyPart, target, equipment });
   }
 
@@ -397,14 +401,24 @@ export function WorkoutApp() {
       return;
     }
 
-    const activeMuscle = MUSCLE_OPTIONS.find((item) => item.id === nextIds.at(-1)) ?? muscle;
-    const labels = MUSCLE_OPTIONS.filter((item) => nextIds.includes(item.id)).map((item) => item.label);
-    setBodyPart(activeMuscle.bodyPart);
-    setTarget(activeMuscle.target ?? "");
-    setPlanNeed(`重点训练${labels.join("、")}，动作要适合我的器材`);
-    const nextQuery = `${labels.join("、")} 动作`;
-    setQuery(nextQuery);
-    void runExerciseSearch({ query: nextQuery, bodyPart: activeMuscle.bodyPart, target: activeMuscle.target, equipment });
+    const intent = buildMuscleSearchIntent(nextIds);
+    setBodyPart(intent.bodyPart);
+    setTarget(intent.target);
+    setPlanNeed(`重点训练${intent.labels.join("、")}，动作要适合我的器材`);
+    setQuery(intent.displayQuery);
+  }
+
+  async function runSelectedMuscleSearch(ids = selectedMuscleIds) {
+    const intent = buildMuscleSearchIntent(ids);
+    if (!intent.labels.length) {
+      await runExerciseSearch({ query, bodyPart, target, equipment });
+      return;
+    }
+    setQuery(intent.displayQuery);
+    setBodyPart(intent.bodyPart);
+    setTarget(intent.target);
+    setPlanNeed(`重点训练${intent.labels.join("、")}，动作要适合我的器材`);
+    await runExerciseSearch({ ...intent.params, equipment });
   }
 
   function selectedFocusPayload(ids = selectedMuscleIds): FocusPayload {
@@ -514,6 +528,8 @@ export function WorkoutApp() {
             <MusclePicker
               selectedIds={selectedMuscleIds}
               onPick={handleMusclePick}
+              onSearch={() => void runSelectedMuscleSearch()}
+              searchLoading={searchLoading}
               onClear={() => {
                 setSelectedMuscleIds([]);
                 setBodyPart("");
@@ -690,26 +706,26 @@ export function WorkoutApp() {
 function MusclePicker({
   selectedIds,
   onPick,
+  onSearch,
+  searchLoading,
   onClear,
 }: {
   selectedIds: string[];
   onPick: (id: string) => void;
+  onSearch: () => void;
+  searchLoading: boolean;
   onClear: () => void;
 }) {
   const selectedLabels = MUSCLE_OPTIONS.filter((item) => selectedIds.includes(item.id)).map((item) => item.label);
+  const selectedSummary = selectedLabels.length ? `已选 ${selectedLabels.length} 个` : "未选择";
 
   return (
     <div className="muscle-picker" aria-label="按肌肉查询动作">
       <div className="picker-heading">
         <div>
           <strong>按人体图选择肌肉</strong>
-          <p className="muted">点亮目标肌肉即可查询对应动作，并同步为计划重点。</p>
+          <p className="muted">先点选目标肌肉，不会立刻请求接口；选好后统一查询一次。</p>
         </div>
-        {selectedIds.length ? (
-          <button className="mini-link" type="button" onClick={onClear}>
-            清空肌肉
-          </button>
-        ) : null}
       </div>
 
       <div className="body-map-stage" aria-label="人体肌肉选择图">
@@ -724,35 +740,56 @@ function MusclePicker({
       </div>
 
       <div className="body-map-selected">
-        <span>已选</span>
-        <strong>{selectedLabels.length ? selectedLabels.join("、") : "点击上方肌肉区域"}</strong>
+        <div>
+          <span>选择状态</span>
+          <strong>{selectedSummary}</strong>
+        </div>
+        <div className="selected-muscle-strip" aria-label="已选肌肉">
+          {selectedLabels.length ? selectedLabels.map((label) => <span key={label}>{label}</span>) : <em>点击人体图选择</em>}
+        </div>
       </div>
 
-      <div className="muscle-group-list">
-        {MUSCLE_GROUPS.map((group) => (
-          <div className="muscle-group" key={group.title}>
-            <span className="muscle-group-title">{group.title}</span>
-            <div className="muscle-chip-row">
-              {group.ids.map((id) => {
-                const muscle = MUSCLE_OPTIONS.find((item) => item.id === id);
-                if (!muscle) return null;
-                const active = selectedIds.includes(muscle.id);
-                return (
-                  <button
-                    aria-pressed={active}
-                    className={`muscle-chip${active ? " active" : ""}`}
-                    key={muscle.id}
-                    type="button"
-                    onClick={() => onPick(muscle.id)}
-                  >
-                    <span>{muscle.label}</span>
-                    <small>{lookupOptionLabel(BODY_PART_OPTIONS, muscle.bodyPart)}</small>
-                  </button>
-                );
-              })}
+      <div className="muscle-picker-actions">
+        <button className="primary" type="button" disabled={!selectedIds.length || searchLoading} onClick={onSearch}>
+          {searchLoading ? "查询中..." : "统一查询已选肌肉"}
+        </button>
+        <button className="secondary" type="button" disabled={!selectedIds.length} onClick={onClear}>
+          清空肌肉
+        </button>
+      </div>
+
+      <details className="muscle-chip-details">
+        <summary>文字辅助选择</summary>
+        <div className="muscle-group-list">
+          {MUSCLE_GROUPS.map((group) => (
+            <div className="muscle-group" key={group.title}>
+              <span className="muscle-group-title">{group.title}</span>
+              <div className="muscle-chip-row">
+                {group.ids.map((id) => {
+                  const muscle = MUSCLE_OPTIONS.find((item) => item.id === id);
+                  if (!muscle) return null;
+                  const active = selectedIds.includes(muscle.id);
+                  return (
+                    <button
+                      aria-pressed={active}
+                      className={`muscle-chip${active ? " active" : ""}`}
+                      key={muscle.id}
+                      type="button"
+                      onClick={() => onPick(muscle.id)}
+                    >
+                      <span>{muscle.label}</span>
+                      <small>{lookupOptionLabel(BODY_PART_OPTIONS, muscle.bodyPart)}</small>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      </details>
+
+      <div className="muscle-query-note">
+        多选同一大部位时只按该大部位拉取一批动作；跨部位时先按器材/全身拉取，避免每个肌肉都消耗一次额度。
       </div>
     </div>
   );
@@ -796,21 +833,51 @@ function SvgBodyMap({
 
   const decoratedSvg = useMemo(() => decorateBodyMapSvg(svgText, view, selectedIds), [svgText, view, selectedIds]);
 
-  function pickFromEventTarget(target: EventTarget | null) {
-    if (!(target instanceof Element)) return;
+  function findMuscleIdFromElement(target: EventTarget | Element | null) {
+    if (!(target instanceof Element)) return undefined;
     const region = target.closest<SVGGElement>("[data-muscle-id]");
-    const muscleId = region?.dataset.muscleId;
-    if (muscleId) onPick(muscleId);
+    return region?.dataset.muscleId;
+  }
+
+  function findMuscleIdNearPoint(root: HTMLDivElement, clientX: number, clientY: number) {
+    const stackedRegion = document
+      .elementsFromPoint(clientX, clientY)
+      .find((element) => root.contains(element) && element.closest("[data-muscle-id]"))
+      ?.closest<SVGGElement>("[data-muscle-id]");
+    if (stackedRegion?.dataset.muscleId) return stackedRegion.dataset.muscleId;
+
+    const candidates = Array.from(root.querySelectorAll<SVGGElement>("[data-muscle-id]"));
+    let bestMuscleId: string | undefined;
+    let bestScore = Number.POSITIVE_INFINITY;
+    const slop = 10;
+    candidates.forEach((region) => {
+      const muscleId = region.dataset.muscleId;
+      if (!muscleId) return;
+      const rect = region.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      if (clientX < rect.left - slop || clientX > rect.right + slop || clientY < rect.top - slop || clientY > rect.bottom + slop) return;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const normalizedCenterDistance = Math.hypot(clientX - centerX, clientY - centerY) / Math.max(rect.width, rect.height);
+      const score = normalizedCenterDistance + rect.width * rect.height * 0.000001;
+      if (score < bestScore) {
+        bestMuscleId = muscleId;
+        bestScore = score;
+      }
+    });
+    return bestMuscleId;
   }
 
   function handleClick(event: ReactMouseEvent<HTMLDivElement>) {
-    pickFromEventTarget(event.target);
+    const muscleId = findMuscleIdFromElement(event.target) ?? findMuscleIdNearPoint(event.currentTarget, event.clientX, event.clientY);
+    if (muscleId) onPick(muscleId);
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    pickFromEventTarget(event.target);
+    const muscleId = findMuscleIdFromElement(event.target);
+    if (muscleId) onPick(muscleId);
   }
 
   if (!decoratedSvg) return <div className="body-map-loading">人体图加载中...</div>;
@@ -874,7 +941,8 @@ function decorateBodyMapSvg(svgText: string, view: "front" | "back", selectedIds
 const BODY_MAP_SVG_STYLE = `
   svg { width: 100%; height: auto; display: block; }
   .bodymap { color: #fbfffd; transition: color .16s ease, filter .16s ease; }
-  .bodymap.interactive { cursor: pointer; pointer-events: auto; }
+  .bodymap.interactive { cursor: pointer; pointer-events: auto; pointer-events: bounding-box; touch-action: manipulation; }
+  .bodymap.interactive path { pointer-events: visiblePainted; }
   .bodymap.interactive:hover, .bodymap.interactive:focus { color: #ffd6df; outline: none; }
   .bodymap.interactive.selected { color: #fb8da7; filter: drop-shadow(0 7px 12px rgba(251, 113, 133, .22)); }
   .bodymap.interactive.selected path[fill="currentColor"] { stroke: #3f425f; stroke-width: 1.2; }
@@ -1125,6 +1193,30 @@ function splitEquipment(value: string) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function buildMuscleSearchIntent(ids: string[]) {
+  const selected = MUSCLE_OPTIONS.filter((item) => ids.includes(item.id));
+  const labels = selected.map((item) => item.label);
+  const bodyParts = Array.from(new Set(selected.map((item) => item.bodyPart).filter(Boolean)));
+  const targets = Array.from(new Set(selected.map((item) => item.target).filter(Boolean)));
+  const params: { bodyPart?: string; target?: string } = {};
+
+  if (targets.length === 1) {
+    params.target = targets[0];
+    const matchingBodyPart = selected.find((item) => item.target === targets[0])?.bodyPart;
+    if (matchingBodyPart) params.bodyPart = matchingBodyPart;
+  } else if (bodyParts.length === 1) {
+    params.bodyPart = bodyParts[0];
+  }
+
+  return {
+    labels,
+    displayQuery: labels.length ? `${labels.join("、")} 动作` : "",
+    bodyPart: params.bodyPart ?? "",
+    target: params.target ?? "",
+    params,
+  };
 }
 
 function hasExerciseGif(exercise: Partial<Exercise> | null | undefined): exercise is Pick<Exercise, "id" | "gifUrl"> {

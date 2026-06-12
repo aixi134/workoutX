@@ -58,7 +58,9 @@ const EQUIPMENT_ZH: Record<string, string> = {
 };
 
 const TARGET_ZH: Record<string, string> = {
+  abductors: "髋外展肌",
   abs: "腹肌",
+  adductors: "大腿内侧/内收肌",
   biceps: "肱二头肌",
   calves: "小腿肌群",
   "cardiovascular system": "心肺系统",
@@ -67,8 +69,10 @@ const TARGET_ZH: Record<string, string> = {
   glutes: "臀肌",
   hamstrings: "腘绳肌",
   lats: "背阔肌",
+  "levator scapulae": "颈部肌群",
   pectorals: "胸肌",
   quads: "股四头肌",
+  spine: "下背/竖脊肌",
   traps: "斜方肌",
   triceps: "肱三头肌",
   "upper back": "上背部",

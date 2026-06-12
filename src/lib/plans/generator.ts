@@ -69,6 +69,7 @@ const TARGET_TO_BODY_PART: Record<string, string> = {
 const FOCUS_ZH: Record<string, string> = {
   chest: "胸部",
   back: "背部",
+  neck: "颈部",
   shoulders: "肩部",
   "upper arms": "上臂",
   "lower arms": "前臂",
