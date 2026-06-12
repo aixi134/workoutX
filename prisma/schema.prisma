@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Exercise {
+  id               String     @id
+  name             String
+  bodyPart         String
+  target           String
+  equipment        String
+  gifUrl           String?
+  instructions     Json?
+  secondaryMuscles String[]
+  raw              Json?
+  cachedAt         DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  planItems        PlanItem[]
+
+  @@index([bodyPart])
+  @@index([target])
+  @@index([equipment])
+  @@index([name])
+}
+
+model ExerciseQueryCache {
+  id          String   @id @default(cuid())
+  cacheKey    String   @unique
+  params      Json
+  exerciseIds String[]
+  rateLimit   Json?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model EquipmentRecognition {
+  id         String   @id @default(cuid())
+  provider   String
+  model      String
+  candidates Json
+  rawOutput  Json?
+  createdAt  DateTime @default(now())
+}
+
+model WeeklyPlan {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  goal            String
+  level           String
+  daysPerWeek     Int
+  sessionDuration Int
+  equipment       String[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  days            PlanDay[]
+}
+
+model PlanDay {
+  id       String     @id @default(cuid())
+  planId   String
+  dayIndex Int
+  label    String
+  focus    String
+  plan     WeeklyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  items    PlanItem[]
+
+  @@unique([planId, dayIndex])
+  @@index([planId])
+}
+
+model PlanItem {
+  id               String    @id @default(cuid())
+  dayId            String
+  exerciseId       String?
+  order            Int
+  sets             Int
+  reps             String
+  restSeconds      Int
+  note             String?
+  exerciseSnapshot Json?
+  day              PlanDay   @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  exercise         Exercise? @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+
+  @@index([dayId])
+  @@index([exerciseId])
+}
+
+
+model ExerciseTranslationCache {
+  id           String   @id @default(cuid())
+  exerciseId   String
+  locale       String
+  provider     String
+  model        String
+  name         String?
+  description  String?
+  instructions String[]
+  raw          Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([exerciseId, locale])
+  @@index([exerciseId])
+}
