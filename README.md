@@ -85,6 +85,19 @@ location /workoutx/ {
 }
 ```
 
+如果访问地址就是根路径，例如 `http://buai.cc:8388/`，则不要配置子路径：
+
+```bash
+NEXT_PUBLIC_BASE_PATH=
+```
+
+公网部署请使用生产模式 `next start`，不要用 `next dev`。Docker Compose 中的 `app` 服务默认会执行：
+
+```bash
+npm run build
+npm run start -- --hostname 0.0.0.0
+```
+
 ## API
 
 - `GET /api/exercises?query=&bodyPart=&target=&equipment=&limit=10`

@@ -38,7 +38,7 @@ services:
       - workoutx-node-modules:/app/node_modules
       - workoutx-next-cache:/app/.next
       - workoutx-npm-cache:/root/.npm
-    command: sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev -- --hostname 0.0.0.0"
+    command: sh -c "npm install && npx prisma generate && npx prisma db push && npm run build && npm run start -- --hostname 0.0.0.0"
 
 volumes:
   workoutx-postgres-data:
