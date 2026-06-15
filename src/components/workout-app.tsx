@@ -858,37 +858,8 @@ function SvgBodyMap({
     return region?.dataset.muscleId;
   }
 
-  function findMuscleIdNearPoint(root: HTMLDivElement, clientX: number, clientY: number) {
-    const stackedRegion = document
-      .elementsFromPoint(clientX, clientY)
-      .find((element) => root.contains(element) && element.closest("[data-muscle-id]"))
-      ?.closest<SVGGElement>("[data-muscle-id]");
-    if (stackedRegion?.dataset.muscleId) return stackedRegion.dataset.muscleId;
-
-    const candidates = Array.from(root.querySelectorAll<SVGGElement>("[data-muscle-id]"));
-    let bestMuscleId: string | undefined;
-    let bestScore = Number.POSITIVE_INFINITY;
-    const slop = 10;
-    candidates.forEach((region) => {
-      const muscleId = region.dataset.muscleId;
-      if (!muscleId) return;
-      const rect = region.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      if (clientX < rect.left - slop || clientX > rect.right + slop || clientY < rect.top - slop || clientY > rect.bottom + slop) return;
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const normalizedCenterDistance = Math.hypot(clientX - centerX, clientY - centerY) / Math.max(rect.width, rect.height);
-      const score = normalizedCenterDistance + rect.width * rect.height * 0.000001;
-      if (score < bestScore) {
-        bestMuscleId = muscleId;
-        bestScore = score;
-      }
-    });
-    return bestMuscleId;
-  }
-
   function handleClick(event: ReactMouseEvent<HTMLDivElement>) {
-    const muscleId = findMuscleIdFromElement(event.target) ?? findMuscleIdNearPoint(event.currentTarget, event.clientX, event.clientY);
+    const muscleId = findMuscleIdFromElement(event.target);
     if (muscleId) onPick(muscleId);
   }
 
@@ -960,8 +931,15 @@ function decorateBodyMapSvg(svgText: string, view: "front" | "back", selectedIds
 const BODY_MAP_SVG_STYLE = `
   svg { width: 100%; height: auto; display: block; }
   .bodymap { color: #fbfffd; transition: color .16s ease, filter .16s ease; }
-  .bodymap.interactive { cursor: pointer; pointer-events: auto; pointer-events: bounding-box; touch-action: manipulation; }
-  .bodymap.interactive path { pointer-events: visiblePainted; }
+  .bodymap.interactive { pointer-events: none; touch-action: manipulation; }
+  .bodymap.interactive path[fill="currentColor"] {
+    cursor: pointer;
+    pointer-events: visiblePainted;
+    stroke: transparent;
+    stroke-width: 10;
+    vector-effect: non-scaling-stroke;
+    paint-order: stroke fill;
+  }
   .bodymap.interactive:hover, .bodymap.interactive:focus { color: #ffd6df; outline: none; }
   .bodymap.interactive.selected { color: #fb8da7; filter: drop-shadow(0 7px 12px rgba(251, 113, 133, .22)); }
   .bodymap.interactive.selected path[fill="currentColor"] { stroke: #3f425f; stroke-width: 1.2; }
