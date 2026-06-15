@@ -931,7 +931,7 @@ function decorateBodyMapSvg(svgText: string, view: "front" | "back", selectedIds
 const BODY_MAP_SVG_STYLE = `
   svg { width: 100%; height: auto; display: block; }
   .bodymap { color: #fbfffd; transition: color .16s ease, filter .16s ease; }
-  .bodymap.interactive { pointer-events: none; touch-action: manipulation; }
+  .bodymap.interactive { cursor: pointer; pointer-events: visiblePainted; touch-action: manipulation; }
   .bodymap.interactive path[fill="currentColor"] {
     cursor: pointer;
     pointer-events: visiblePainted;
@@ -943,7 +943,8 @@ const BODY_MAP_SVG_STYLE = `
   .bodymap.interactive:hover, .bodymap.interactive:focus { color: #ffd6df; outline: none; }
   .bodymap.interactive.selected { color: #fb8da7; filter: drop-shadow(0 7px 12px rgba(251, 113, 133, .22)); }
   .bodymap.interactive.selected path[fill="currentColor"] { stroke: #3f425f; stroke-width: 1.2; }
-  .bodymap.muted-region { color: #eef4f1; pointer-events: none; }
+  .muted-region, .muted-region *, .body-map__model, .body-map__model * { pointer-events: none; }
+  .bodymap.muted-region { color: #eef4f1; }
 `;
 
 function escapeRegExp(value: string) {
