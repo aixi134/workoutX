@@ -46,6 +46,44 @@ npm run db:deploy # 使用 prisma/migrations 初始化数据库
 - `OPENAI_MODEL`：默认 `gpt-5.5`。
 - `AI_FALLBACK_TO_MOCK`：默认启用；OpenAI Responses/Chat Completions 上游失败时返回 Mock 候选，避免 UI/API 整体不可用。设为 `false` 可改为硬失败。
 - `QUERY_CACHE_TTL_HOURS`：查询缓存小时数，默认 24。
+- `NEXT_PUBLIC_BASE_PATH`：仅当部署在子路径时设置，例如站点访问地址是 `https://example.com/workoutx`，则设置为 `/workoutx`。修改后必须重新构建/重启 Next.js。
+
+## 部署检查
+
+如果部署后“接口不可用”或“人体图不显示”，优先检查这三类路径是否能直接访问：
+
+```bash
+curl -I https://你的域名/api/plans/current
+curl -I https://你的域名/api/exercises?bodyPart=chest\&limit=1
+curl -I https://你的域名/bodymaps/male-front.svg
+```
+
+如果你的应用部署在子路径，例如 `https://你的域名/workoutx`，则需要：
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/workoutx
+npm run build
+npm run start
+```
+
+并确认以下路径返回 200：
+
+```bash
+curl -I https://你的域名/workoutx/api/plans/current
+curl -I https://你的域名/workoutx/api/exercises?bodyPart=chest\&limit=1
+curl -I https://你的域名/workoutx/bodymaps/male-front.svg
+```
+
+Nginx/反代必须把页面、`/_next`、`/api`、`/bodymaps` 都转发到 Next.js 服务。子路径部署示例：
+
+```nginx
+location /workoutx/ {
+  proxy_pass http://127.0.0.1:3000/workoutx/;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
 
 ## API
 

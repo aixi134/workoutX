@@ -234,6 +234,25 @@ const PLAN_FOCUS_LABEL: Record<string, string> = {
 
 const DEFAULT_PLAN_NEED = "根据我的器材安排一周训练，优先动作标准、适合长期坚持";
 
+const CONFIGURED_BASE_PATH = normalizeAppBasePath(process.env.NEXT_PUBLIC_BASE_PATH);
+
+function appPath(path: `/${string}`) {
+  return `${currentAppBasePath()}${path}`;
+}
+
+function currentAppBasePath() {
+  if (CONFIGURED_BASE_PATH) return CONFIGURED_BASE_PATH;
+  if (typeof window === "undefined") return "";
+
+  const firstSegment = window.location.pathname.split("/").filter(Boolean)[0];
+  if (!firstSegment || firstSegment === "api" || firstSegment === "_next") return "";
+  return `/${firstSegment}`;
+}
+
+function normalizeAppBasePath(value: string | undefined) {
+  const cleaned = value?.trim().replace(/^\/+|\/+$/g, "");
+  return cleaned ? `/${cleaned}` : "";
+}
 
 export function WorkoutApp() {
   const [query, setQuery] = useState("在家用哑铃练胸");
@@ -275,7 +294,7 @@ export function WorkoutApp() {
   }, [selectedExercise]);
 
   useEffect(() => {
-    fetch("/api/plans/current")
+    fetch(appPath("/api/plans/current"))
       .then((response) => (response.ok ? response.json() : null))
       .then((data: PlanResponse | null) => {
         if (data?.plan) setPlan(data.plan);
@@ -303,7 +322,7 @@ export function WorkoutApp() {
     setSearchLoading(true);
     setSearchError(null);
     try {
-      const url = new URL("/api/exercises", window.location.origin);
+      const url = new URL(appPath("/api/exercises"), window.location.origin);
       if (params.query) url.searchParams.set("query", params.query);
       if (params.bodyPart) url.searchParams.set("bodyPart", params.bodyPart);
       if (params.target) url.searchParams.set("target", params.target);
@@ -325,7 +344,7 @@ export function WorkoutApp() {
     try {
       const formData = new FormData();
       formData.set("image", imageFile);
-      const data = await fetchJson<RecognitionResponse>("/api/ai/equipment-recognize", {
+      const data = await fetchJson<RecognitionResponse>(appPath("/api/ai/equipment-recognize"), {
         method: "POST",
         body: formData,
       });
@@ -352,7 +371,7 @@ export function WorkoutApp() {
     setPlanError(null);
     try {
       const focusPayload = selectedFocusPayload();
-      const data = await fetchJson<PlanResponse>("/api/plans/generate", {
+      const data = await fetchJson<PlanResponse>(appPath("/api/plans/generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -377,7 +396,7 @@ export function WorkoutApp() {
     setSelectedExercise(exercise);
     setDetailLoading(true);
     try {
-      const data = await fetchJson<{ exercise: Exercise }>(`/api/exercises/${encodeURIComponent(exercise.id)}`);
+      const data = await fetchJson<{ exercise: Exercise }>(appPath(`/api/exercises/${encodeURIComponent(exercise.id)}`));
       setSelectedExercise(data.exercise);
     } catch {
       setSelectedExercise(exercise);
@@ -796,11 +815,11 @@ function MusclePicker({
 }
 
 function FrontBodyMap({ selectedIds, onPick }: { selectedIds: string[]; onPick: (id: string) => void }) {
-  return <SvgBodyMap view="front" src="/bodymaps/male-front.svg" selectedIds={selectedIds} onPick={onPick} />;
+  return <SvgBodyMap view="front" src={appPath("/bodymaps/male-front.svg")} selectedIds={selectedIds} onPick={onPick} />;
 }
 
 function BackBodyMap({ selectedIds, onPick }: { selectedIds: string[]; onPick: (id: string) => void }) {
-  return <SvgBodyMap view="back" src="/bodymaps/male-back.svg" selectedIds={selectedIds} onPick={onPick} />;
+  return <SvgBodyMap view="back" src={appPath("/bodymaps/male-back.svg")} selectedIds={selectedIds} onPick={onPick} />;
 }
 
 function SvgBodyMap({
@@ -1225,7 +1244,7 @@ function hasExerciseGif(exercise: Partial<Exercise> | null | undefined): exercis
 
 function localGifUrl(exercise: Pick<Exercise, "id" | "gifUrl">) {
   if (!exercise.gifUrl) return "";
-  return `/api/gifs/${encodeURIComponent(exercise.id)}.gif`;
+  return appPath(`/api/gifs/${encodeURIComponent(exercise.id)}.gif`);
 }
 
 function displayExerciseName(exercise: Partial<Exercise>) {
