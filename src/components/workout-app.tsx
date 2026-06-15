@@ -1,7 +1,16 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 type Exercise = {
   id: string;
@@ -834,6 +843,8 @@ function SvgBodyMap({
   onPick: (id: string) => void;
 }) {
   const [svgText, setSvgText] = useState("");
+  const pointerStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const lastPickRef = useRef<{ muscleId: string; at: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -858,16 +869,70 @@ function SvgBodyMap({
     return region?.dataset.muscleId;
   }
 
+  function findMuscleIdAtPoint(container: HTMLDivElement, clientX: number, clientY: number) {
+    const stackedElements = document.elementsFromPoint?.(clientX, clientY) ?? [];
+    for (const element of stackedElements) {
+      if (!container.contains(element)) continue;
+      const region = element.closest<SVGGElement>("[data-muscle-id]");
+      if (region && container.contains(region)) return region.dataset.muscleId;
+    }
+
+    const svg = container.querySelector("svg");
+    if (!svg) return undefined;
+
+    const regions = Array.from(svg.querySelectorAll<SVGGElement>("[data-muscle-id]")).reverse();
+    for (const region of regions) {
+      const shapes = Array.from(region.querySelectorAll<SVGGeometryElement>("path, polygon, rect, circle, ellipse"));
+      if (shapes.some((shape) => isClientPointInsideSvgShape(shape, clientX, clientY))) {
+        return region.dataset.muscleId;
+      }
+    }
+
+    return undefined;
+  }
+
+  function pickMuscle(muscleId: string) {
+    const now = Date.now();
+    const lastPick = lastPickRef.current;
+    if (lastPick?.muscleId === muscleId && now - lastPick.at < 1200) return;
+    lastPickRef.current = { muscleId, at: now };
+    onPick(muscleId);
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    pointerStartRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start || start.pointerId !== event.pointerId) return;
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (moved > 10) return;
+
+    const muscleId =
+      findMuscleIdFromElement(event.target) ?? findMuscleIdAtPoint(event.currentTarget, event.clientX, event.clientY);
+    if (muscleId) {
+      event.preventDefault();
+      pickMuscle(muscleId);
+    }
+  }
+
   function handleClick(event: ReactMouseEvent<HTMLDivElement>) {
-    const muscleId = findMuscleIdFromElement(event.target);
-    if (muscleId) onPick(muscleId);
+    const muscleId =
+      findMuscleIdFromElement(event.target) ?? findMuscleIdAtPoint(event.currentTarget, event.clientX, event.clientY);
+    if (muscleId) pickMuscle(muscleId);
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     const muscleId = findMuscleIdFromElement(event.target);
-    if (muscleId) onPick(muscleId);
+    if (muscleId) pickMuscle(muscleId);
   }
 
   if (!decoratedSvg) return <div className="body-map-loading">人体图加载中...</div>;
@@ -875,6 +940,8 @@ function SvgBodyMap({
   return (
     <div
       className="body-map-inline"
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       dangerouslySetInnerHTML={{ __html: decoratedSvg }}
@@ -903,10 +970,12 @@ function decorateBodyMapSvg(svgText: string, view: "front" | "back", selectedIds
         return `class="${Array.from(classes).join(" ")}"`;
       });
       if (!/class="/i.test(tag)) tag = tag.replace(/^<g\b/i, `<g class="interactive${selected ? " selected" : ""}"`);
-      return tag.replace(
+      tag = tag.replace(
         /^<g\b/i,
         `<g data-bodymap-region="${regionId}" data-muscle-id="${muscleId}" role="button" tabindex="0" aria-label="选择${label}" aria-pressed="${selected ? "true" : "false"}"`,
       );
+      tag = withSvgAttribute(tag, "pointer-events", "visiblePainted");
+      return withSvgStyleProperty(tag, "pointer-events", "visiblePainted");
     });
   });
 
@@ -921,7 +990,9 @@ function decorateBodyMapSvg(svgText: string, view: "front" | "back", selectedIds
         return `class="${Array.from(classes).join(" ")}"`;
       });
       if (!/class="/i.test(tag)) tag = tag.replace(/^<g\b/i, `<g class="muted-region"`);
-      return tag.replace(/^<g\b/i, `<g data-bodymap-region="${regionId}" aria-hidden="true"`);
+      tag = tag.replace(/^<g\b/i, `<g data-bodymap-region="${regionId}" aria-hidden="true"`);
+      tag = withSvgAttribute(tag, "pointer-events", "none");
+      return withSvgStyleProperty(tag, "pointer-events", "none");
     });
   });
 
@@ -949,6 +1020,35 @@ const BODY_MAP_SVG_STYLE = `
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isClientPointInsideSvgShape(shape: SVGGeometryElement, clientX: number, clientY: number) {
+  const matrix = shape.getScreenCTM();
+  if (!matrix) return false;
+  const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
+  return Boolean(shape.isPointInFill?.(point) || shape.isPointInStroke?.(point));
+}
+
+function withSvgAttribute(tag: string, name: string, value: string) {
+  const attributePattern = new RegExp(`\\s${escapeRegExp(name)}=("[^"]*"|'[^']*'|[^\\s>]+)`, "i");
+  if (attributePattern.test(tag)) return tag.replace(attributePattern, ` ${name}="${value}"`);
+  return tag.replace(/>$/, ` ${name}="${value}">`);
+}
+
+function withSvgStyleProperty(tag: string, name: string, value: string) {
+  const stylePattern = /\sstyle=("([^"]*)"|'([^']*)')/i;
+  const existingStyle = tag.match(stylePattern);
+  const propertyPattern = new RegExp(`\\s*${escapeRegExp(name)}\\s*:[^;]+;?`, "i");
+  const nextDeclaration = `${name}: ${value};`;
+
+  if (!existingStyle) return tag.replace(/>$/, ` style="${nextDeclaration}">`);
+
+  const quoteWrappedValue = existingStyle[1];
+  const quote = quoteWrappedValue.startsWith("'") ? "'" : "\"";
+  const styleValue = existingStyle[2] ?? existingStyle[3] ?? "";
+  const cleaned = styleValue.replace(propertyPattern, "").trim();
+  const nextStyle = `${cleaned ? `${cleaned.replace(/;?$/, ";")} ` : ""}${nextDeclaration}`;
+  return tag.replace(stylePattern, ` style=${quote}${nextStyle}${quote}`);
 }
 
 function ExerciseResults({ result, onOpenExercise }: { result: ExerciseSearchResponse; onOpenExercise: (exercise: Exercise) => void }) {
