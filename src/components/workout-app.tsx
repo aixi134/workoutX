@@ -996,7 +996,7 @@ function decorateBodyMapSvg(svgText: string, view: "front" | "back", selectedIds
     });
   });
 
-  return output;
+  return output.replace(/<\/svg>\s*$/i, `${extraBodyMapHitAreas(view)}</svg>`);
 }
 
 const BODY_MAP_SVG_STYLE = `
@@ -1016,10 +1016,30 @@ const BODY_MAP_SVG_STYLE = `
   .bodymap.interactive.selected path[fill="currentColor"] { stroke: #3f425f; stroke-width: 1.2; }
   .muted-region, .muted-region *, .body-map__model, .body-map__model * { pointer-events: none; }
   .bodymap.muted-region { color: #eef4f1; }
+  .bodymap-hit-area {
+    cursor: pointer;
+    pointer-events: all;
+    fill: #ffffff;
+    fill-opacity: .001;
+    stroke: none;
+  }
 `;
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extraBodyMapHitAreas(view: "front" | "back") {
+  if (view !== "back") return "";
+
+  return `
+    <g class="bodymap-extra-hit-areas" aria-hidden="true">
+      <polygon class="bodymap-hit-area" data-bodymap-region="lats-hit-left" data-muscle-id="lats" pointer-events="all"
+        points="198,282 232,250 278,270 301,334 275,548 229,528 211,448 203,365" />
+      <polygon class="bodymap-hit-area" data-bodymap-region="lats-hit-right" data-muscle-id="lats" pointer-events="all"
+        points="478,282 444,250 398,270 375,334 401,548 447,528 465,448 473,365" />
+    </g>
+  `;
 }
 
 function isClientPointInsideSvgShape(shape: SVGGeometryElement, clientX: number, clientY: number) {
